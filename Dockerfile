@@ -1,5 +1,5 @@
-FROM python:2
-MAINTAINER Mark Feldhousen <mark.feldhousen@hq.dhs.gov>
+FROM python:3
+MAINTAINER Mark Feldhousen <mark.feldhousen@cisa.dhs.gov>
 ENV CYHY_HOME="/home/cyhy" \
     CYHY_RUNNER_SRC="/usr/src/cyhy-runner"
 
