@@ -1,5 +1,9 @@
 .DS_Store
-*.pyc
-._*
 *.egg-info
+*.pyc
+.coverage
 .ipynb_checkpoints
+.mypy_cache
+.pytest_cache
+.python-version
+__pycache__
