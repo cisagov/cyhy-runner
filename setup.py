@@ -1,9 +1,5 @@
 """
-<<<<<<< HEAD
 This is the setup module for the cyhy-runner project.
-=======
-This is the setup module for the example project.
->>>>>>> f491f922bf730c2fadf793608ab63968199200c0
 
 Based on:
 
@@ -35,13 +31,6 @@ def package_vars(version_file):
 
 
 setup(
-<<<<<<< HEAD
-    # Versions should comply with PEP440
-    version=package_vars("src/example/_version.py")["__version__"],
-    author="Mark Feldhousen Jr.",
-    author_email="mark.feldhousen@cisa.dhs.gov",
-    license="LICENSE.txt",
-=======
     name="cyhy-runner",
     # Versions should comply with PEP440
     version=package_vars("src/example/_version.py")["__version__"],
@@ -79,7 +68,7 @@ setup(
     python_requires=">=2.7",
     # What does your project relate to?
     keywords="cyhy",
-    packages=find_packages(where="src"),
+    # packages=find_packages(where="src"),
     packages=["cyhy_runner"],
     package_dir={"": "src"},
     package_data={"example": ["data/*.txt"]},
@@ -92,7 +81,7 @@ setup(
         "python-daemon >= 1.6",
         "requests >= 2.13",
         "setuptools >= 24.2.0",
-        "schema"
+        "schema",
     ],
     extras_require={
         "test": [
