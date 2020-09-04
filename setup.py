@@ -33,7 +33,7 @@ def package_vars(version_file):
 setup(
     name="cyhy-runner",
     # Versions should comply with PEP440
-    version=package_vars("src/example/_version.py")["__version__"],
+    version=package_vars("src/cyhy_runner/_version.py")["__version__"],
     description="Job runner daemon for Cyber Hygiene remote scanners",
     long_description=readme(),
     long_description_content_type="text/markdown",
@@ -65,15 +65,13 @@ setup(
         # "Programming Language :: Python :: 3.7",
         # "Programming Language :: Python :: 3.8",
     ],
-    python_requires=">=2.7",
+    python_requires=">=3.6",
     # What does your project relate to?
     keywords="cyhy",
     # packages=find_packages(where="src"),
     packages=["cyhy_runner"],
     package_dir={"": "src"},
-    package_data={"example": ["data/*.txt"]},
     py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],
-    scripts=["bin/cyhy-runner"],
     include_package_data=True,
     install_requires=[
         "docopt >= 0.6.2",
@@ -99,5 +97,5 @@ setup(
         ]
     },
     # Conveniently allows one to run the CLI tool as `example`
-    entry_points={"console_scripts": ["example = example.example:main"]},
+    entry_points={"console_scripts": ["cyhy-runner = cyhy_runner.cyhy_runner:main"]},
 )

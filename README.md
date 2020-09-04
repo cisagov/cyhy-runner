@@ -1,18 +1,14 @@
-# skeleton-python-library #
+# cyhy-runner #
 
-[![GitHub Build Status](https://github.com/cisagov/skeleton-python-library/workflows/build/badge.svg)](https://github.com/cisagov/skeleton-python-library/actions)
-[![Coverage Status](https://coveralls.io/repos/github/cisagov/skeleton-python-library/badge.svg?branch=develop)](https://coveralls.io/github/cisagov/skeleton-python-library?branch=develop)
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/cisagov/skeleton-python-library.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/cisagov/skeleton-python-library/alerts/)
-[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/cisagov/skeleton-python-library.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/cisagov/skeleton-python-library/context:python)
-[![Known Vulnerabilities](https://snyk.io/test/github/cisagov/skeleton-python-library/develop/badge.svg)](https://snyk.io/test/github/cisagov/skeleton-python-library)
+[![GitHub Build Status](https://github.com/cisagov/cyhy-runner/workflows/build/badge.svg)](https://github.com/cisagov/cyhy-runner/actions)
+[![Coverage Status](https://coveralls.io/repos/github/cisagov/cyhy-runner/badge.svg?branch=develop)](https://coveralls.io/github/cisagov/cyhy-runner?branch=develop)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/cisagov/cyhy-runner.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/cisagov/cyhy-runner/alerts/)
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/cisagov/cyhy-runner.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/cisagov/cyhy-runner/context:python)
+[![Known Vulnerabilities](https://snyk.io/test/github/cisagov/cyhy-runner/develop/badge.svg)](https://snyk.io/test/github/cisagov/cyhy-runner)
 
-This is a generic skeleton project that can be used to quickly get a
-new [cisagov](https://github.com/cisagov) Python library GitHub
-project started.  This skeleton project contains [licensing
-information](LICENSE), as well as
-[pre-commit hooks](https://pre-commit.com) and
-[GitHub Actions](https://github.com/features/actions) configurations
-appropriate for a Python library project.
+This project provides functionality to process jobs pushed by the commander to a
+scanner instance. This includes starting and monitoring processes, as well as
+bundling the results for pickup by the commander.
 
 ## Contributing ##
 
