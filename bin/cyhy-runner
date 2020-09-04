@@ -1,8 +1,7 @@
 #!/usr/bin/env python
+"""Starts the Cyber Hygiene runner."""
 
-import os
-import sys
+# cisagov Libraries
+from src.cyhy_runner import cyhy_runner
 
-from cyhy_runner import cyhy_runner
 cyhy_runner.main()
-

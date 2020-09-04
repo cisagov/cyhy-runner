@@ -18,17 +18,24 @@ Options:
 """
 
 
-import daemon
-from docopt import docopt
-import lockfile
+# Standard Python Libraries
+import grp
 import logging
 from logging.handlers import RotatingFileHandler
 import os
 import shutil
 import signal
-import subprocess
+import subprocess  # nosec
 import sys
 import time
+from typing import List
+
+# Third-Party Libraries
+import daemon
+from docopt import docopt
+import lockfile
+
+from ._version import __version__
 
 RUNNING_DIR = "running"
 DONE_DIR = "done"
@@ -47,12 +54,12 @@ LOCK_FILENAME = "cyhy-runner"
 
 logger = logging.getLogger(__name__)
 
-runningDirs = set()
+running_dirs: List[str] = []
 processes = []
-isRunning = True
+IS_RUNNING = True
 
 
-def setupLogging(console=False):
+def setup_logging(console=False):
     """Set up logging."""
     logger.setLevel(LOGGER_LEVEL)
     if console:
@@ -66,7 +73,7 @@ def setupLogging(console=False):
     handler.setFormatter(formatter)
 
 
-def setupDirectories():
+def setup_directories():
     """Set up running and done directories."""
     for directory in (RUNNING_DIR, DONE_DIR):
         if not os.path.exists(directory):
@@ -74,122 +81,136 @@ def setupDirectories():
             os.makedirs(directory)
 
 
-def checkForNewWork():
+def check_for_new_work():
     """Check for ready file in running directory."""
-    dirs = set(os.listdir(RUNNING_DIR))
-    for d in dirs.difference(runningDirs):
-        logger.info("New directory discovered '{}'.".format(d))
+    dirs = os.listdir(RUNNING_DIR)
+    for new_dir in dirs.difference(running_dirs):
+        if new_dir in running_dirs:
+            # Skip directory we're already running
+            continue
+
+        logger.info("New directory discovered '{}'.".format(new_dir))
         # check for ready file
-        readyFile = os.path.join(RUNNING_DIR, d, READY_FILE)
-        doneFile = os.path.join(RUNNING_DIR, d, DONE_FILE)
-        if os.path.exists(doneFile):
-            logger.warning("Found old '{}' file in new job. Removing.".format(doneFile))
-        if os.path.exists(readyFile):
-            runningDirs.add(d)
-            doWork(d)
+        ready_file = os.path.join(RUNNING_DIR, new_dir, READY_FILE)
+        done_file = os.path.join(RUNNING_DIR, new_dir, DONE_FILE)
+        if os.path.exists(done_file):
+            logger.warning(
+                "Found old '{}' file in new job. Removing.".format(done_file)
+            )
+        if os.path.exists(ready_file):
+            running_dirs.append(new_dir)
+            do_work(new_dir)
         else:
             logger.info(
-                "Not starting work, no '{}' file found in '{}'".format(READY_FILE, d)
+                "Not starting work, no '{}' file found in '{}'".format(
+                    READY_FILE, new_dir
+                )
             )
 
 
-def doWork(jobDir):
+def do_work(job_dir):
     """Perform work on a ready file via a subprocess."""
-    jobDir = os.path.join(RUNNING_DIR, jobDir)
-    jobFile = os.path.join(jobDir, JOB_FILE)
-    if not os.path.exists(jobFile):
-        logger.warning("No job file found in '{}'. Moving to done.".format(jobDir))
-        destDir = moveJobToDone(jobDir)
-        writeStatusFile(destDir, -111)
+    job_dir = os.path.join(RUNNING_DIR, job_dir)
+    job_file = os.path.join(job_dir, JOB_FILE)
+
+    if not os.path.exists(job_file):
+        logger.warning("No job file found in '{}'. Moving to done.".format(job_dir))
+        dest_dir = move_job_to_done(job_dir)
+        write_status_file(dest_dir, -111)
         return
-    outFile = open(os.path.join(jobDir, STDOUT_FILE), "wb")
-    errFile = open(os.path.join(jobDir, STDERR_FILE), "wb")
-    logger.info("Starting work in '{}'.".format(jobDir))
-    os.chmod(jobFile, 0o755)
-    process = subprocess.Popen(
-        JOB_FILE, cwd=jobDir, shell=True, stdout=outFile, stderr=errFile
+
+    out_file = open(os.path.join(job_dir, STDOUT_FILE), "wb")
+    err_file = open(os.path.join(job_dir, STDERR_FILE), "wb")
+
+    logger.info("Starting work in '{}'.".format(job_dir))
+    os.chmod(job_file, 0o755)  # nosec
+    process = subprocess.Popen(  # nosec
+        JOB_FILE, cwd=job_dir, shell=True, stdout=out_file, stderr=err_file
     )
-    process.jobDir = jobDir
+    process.job_dir = job_dir
     processes.append(process)
 
 
-def moveJobToDone(jobDir):
+def move_job_to_done(job_dir):
     """Move job directory to done directory."""
-    dirName = os.path.basename(jobDir)
-    destDir = os.path.join(DONE_DIR, dirName)
-    readyFile = os.path.join(RUNNING_DIR, dirName, READY_FILE)
-    if os.path.exists(readyFile):
-        os.remove(readyFile)
-    shutil.move(jobDir, destDir)
-    return destDir
+    dir_name = os.path.basename(job_dir)
+    dest_dir = os.path.join(DONE_DIR, dir_name)
+    ready_file = os.path.join(RUNNING_DIR, dir_name, READY_FILE)
+
+    if os.path.exists(ready_file):
+        os.remove(ready_file)
+
+    shutil.move(job_dir, dest_dir)
+
+    return dest_dir
 
 
-def writeStatusFile(jobDir, returnCode):
+def write_status_file(job_dir, return_code):
     """Save return code as done flag file."""
-    statusFile = open(os.path.join(jobDir, DONE_FILE), "wb")
-    print(returnCode, file=statusFile)
-    statusFile.close()
+    status_file = open(os.path.join(job_dir, DONE_FILE), "wb")
+    print(return_code, file=status_file)
+    status_file.close()
 
 
-def checkForDoneWork():
+def check_for_done_work():
     """Check for subprocess completion and moves job to done."""
-    for p in processes:
-        returnCode = p.poll()
-        if returnCode is not None:
+    for proc in processes:
+        return_code = proc.poll()
+        if return_code is not None:
             logger.info(
                 "Process in '{}' completed with return code {}.".format(
-                    p.jobDir, returnCode
+                    proc.job_dir, return_code
                 )
             )
-            destDir = moveJobToDone(p.jobDir)
-            writeStatusFile(destDir, returnCode)
-            processes.remove(p)
-            runningDirs.remove(os.path.basename(p.jobDir))
+            dest_dir = move_job_to_done(proc.job_dir)
+            write_status_file(dest_dir, return_code)
+            processes.remove(proc)
+            running_dirs.remove(os.path.basename(proc.job_dir))
 
 
 def run():
     """Run main processing loop."""
     logger.info("Starting up.")
-    setupDirectories()
-    while isRunning:
+    setup_directories()
+    while IS_RUNNING:
         try:
-            checkForNewWork()
-            checkForDoneWork()
-        except Exception as e:
-            logger.critical(e)
+            check_for_new_work()
+            check_for_done_work()
+        except Exception as ex:
+            logger.critical(ex)
         time.sleep(POLL_INTERVAL)
     logger.info("Shutting down.")
 
 
 def handle_term(signal, frame):
     """Handle term code and shut down gracefully."""
-    global isRunning
+    global IS_RUNNING
     logger.warning("Received signal {}.  Shutting down.".format(signal))
-    isRunning = False
+    IS_RUNNING = False
 
 
-if __name__ == "__main__":
-    args = docopt(__doc__, version="v0.0.2")
+def main():
+    """Set up logging and handle command-line arguments to the job runner."""
+    args = docopt(__doc__, version=__version__)
     group = args["--group"]
     if group:
         print("Setting effective group to '{}'".format(group), file=sys.stderr)
-        import grp
 
         new_gid = grp.getgrnam(group).gr_gid
         os.setegid(new_gid)
         # enable group write
         os.umask(0o002)
 
-    workingDir = os.path.join(os.getcwd(), args["<working-dir>"])
-    if not os.path.exists(workingDir):
+    working_dir = os.path.join(os.getcwd(), args["<working-dir>"])
+    if not os.path.exists(working_dir):
         print(
-            "Working directory '{}' does not exist. ".format(workingDir)
+            "Working directory '{}' does not exist. ".format(working_dir)
             + "Attempting to create...",
             file=sys.stderr,
         )
-        os.mkdir(workingDir)
-    os.chdir(workingDir)
-    lockpath = os.path.join(workingDir, LOCK_FILENAME)
+        os.mkdir(working_dir)
+    os.chdir(working_dir)
+    lockpath = os.path.join(working_dir, LOCK_FILENAME)
     lock = lockfile.LockFile(lockpath, timeout=0)
     if lock.is_locked():
         print(
@@ -199,11 +220,9 @@ if __name__ == "__main__":
         )
         sys.exit(-1)
 
-    setupLogging(console=args["--stdout-log"])
-
     if args["--background"]:
         context = daemon.DaemonContext(
-            working_directory=workingDir, umask=0o007, pidfile=lock
+            working_directory=working_dir, umask=0o007, pidfile=lock
         )
         context.signal_map = {
             signal.SIGTERM: handle_term,
@@ -215,3 +234,7 @@ if __name__ == "__main__":
         signal.signal(signal.SIGTERM, handle_term)
         signal.signal(signal.SIGINT, handle_term)
         run()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
