@@ -1,7 +1,7 @@
 """The Cyber Hygiene job runner."""
-# cisagov Libraries
-import cyhy_runner
+# Standard Python Libraries
+from typing import List
 
 from ._version import __version__  # noqa: F401
 
-__all__ = ["cyhy_runner"]
+__all__: List[str] = []

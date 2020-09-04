@@ -2,7 +2,6 @@
 """Tests for Cyber Hygiene job runner."""
 
 # Standard Python Libraries
-import logging
 import os
 import sys
 from unittest.mock import patch
@@ -11,15 +10,7 @@ from unittest.mock import patch
 import pytest
 
 # cisagov Libraries
-import cyhy_runner
-
-log_levels = (
-    "debug",
-    "info",
-    "warning",
-    "error",
-    "critical",
-)
+import cyhy_runner.cyhy_runner
 
 # define sources of version strings
 RELEASE_TAG = os.getenv("RELEASE_TAG")
@@ -45,25 +36,3 @@ def test_release_version():
     assert (
         RELEASE_TAG == f"v{PROJECT_VERSION}"
     ), "RELEASE_TAG does not match the project version"
-
-
-@pytest.mark.parametrize("level", log_levels)
-def test_log_levels(level):
-    """Validate commandline log-level arguments."""
-    with patch.object(sys, "argv", ["bogus", f"--log-level={level}", "1", "1"]):
-        with patch.object(logging.root, "handlers", []):
-            assert (
-                logging.root.hasHandlers() is False
-            ), "root logger should not have handlers yet"
-            return_code = cyhy_runner.cyhy_runner.main()
-            assert (
-                logging.root.hasHandlers() is True
-            ), "root logger should now have a handler"
-            assert return_code == 0, "main() should return success (0)"
-
-
-def test_bad_log_level():
-    """Validate bad log-level argument returns error."""
-    with patch.object(sys, "argv", ["bogus", "--log-level=emergency", "1", "1"]):
-        return_code = cyhy_runner.cyhy_runner.main()
-        assert return_code == 1, "main() should return failure"
