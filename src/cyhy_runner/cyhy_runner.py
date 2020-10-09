@@ -28,7 +28,7 @@ import signal
 import subprocess  # nosec
 import sys
 import time
-from typing import List
+from typing import Set
 
 # Third-Party Libraries
 import daemon
@@ -54,7 +54,7 @@ LOCK_FILENAME = "cyhy-runner"
 
 logger = logging.getLogger(__name__)
 
-running_dirs: List[str] = []
+running_dirs: Set[str] = set()
 processes = []
 IS_RUNNING = True
 
@@ -83,7 +83,7 @@ def setup_directories():
 
 def check_for_new_work():
     """Check for ready file in running directory."""
-    dirs = os.listdir(RUNNING_DIR)
+    dirs = set(os.listdir(RUNNING_DIR))
     for new_dir in dirs.difference(running_dirs):
         if new_dir in running_dirs:
             # Skip directory we're already running
@@ -147,9 +147,8 @@ def move_job_to_done(job_dir):
 
 def write_status_file(job_dir, return_code):
     """Save return code as done flag file."""
-    status_file = open(os.path.join(job_dir, DONE_FILE), "wb")
-    print(return_code, file=status_file)
-    status_file.close()
+    with open(os.path.join(job_dir, DONE_FILE), "wb") as status_file:
+        print(return_code, file=status_file)
 
 
 def check_for_done_work():
@@ -219,6 +218,8 @@ def main():
             file=sys.stderr,
         )
         sys.exit(-1)
+
+    setup_logging(console=args["--stdout-log"])
 
     if args["--background"]:
         context = daemon.DaemonContext(
