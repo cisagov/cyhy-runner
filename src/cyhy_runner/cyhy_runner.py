@@ -77,7 +77,7 @@ def setup_directories():
     """Set up running and done directories."""
     for directory in (RUNNING_DIR, DONE_DIR):
         if not os.path.exists(directory):
-            logger.info("Creating directory '{}'.".format(directory))
+            logger.info('Creating directory "%s".', directory)
             os.makedirs(directory)
 
 
@@ -89,22 +89,18 @@ def check_for_new_work():
             # Skip directory we're already running
             continue
 
-        logger.info("New directory discovered '{}'.".format(new_dir))
+        logger.info('New directory discovered "%s".', new_dir)
         # check for ready file
         ready_file = os.path.join(RUNNING_DIR, new_dir, READY_FILE)
         done_file = os.path.join(RUNNING_DIR, new_dir, DONE_FILE)
         if os.path.exists(done_file):
-            logger.warning(
-                "Found old '{}' file in new job. Removing.".format(done_file)
-            )
+            logger.warning('Found old "%s" file in new job. Removing.', done_file)
         if os.path.exists(ready_file):
             running_dirs.append(new_dir)
             do_work(new_dir)
         else:
             logger.info(
-                "Not starting work, no '{}' file found in '{}'".format(
-                    READY_FILE, new_dir
-                )
+                'Not starting work, no "%s" file found in "%s"', READY_FILE, new_dir
             )
 
 
@@ -114,7 +110,7 @@ def do_work(job_dir):
     job_file = os.path.join(job_dir, JOB_FILE)
 
     if not os.path.exists(job_file):
-        logger.warning("No job file found in '{}'. Moving to done.".format(job_dir))
+        logger.warning('No job file found in "%s". Moving to done.', job_dir)
         dest_dir = move_job_to_done(job_dir)
         write_status_file(dest_dir, -111)
         return
@@ -122,7 +118,7 @@ def do_work(job_dir):
     out_file = open(os.path.join(job_dir, STDOUT_FILE), "wb")
     err_file = open(os.path.join(job_dir, STDERR_FILE), "wb")
 
-    logger.info("Starting work in '{}'.".format(job_dir))
+    logger.info('Starting work in "%s".', job_dir)
     os.chmod(job_file, 0o755)  # nosec
     process = subprocess.Popen(  # nosec
         JOB_FILE, cwd=job_dir, shell=True, stdout=out_file, stderr=err_file
@@ -157,9 +153,9 @@ def check_for_done_work():
         return_code = proc.poll()
         if return_code is not None:
             logger.info(
-                "Process in '{}' completed with return code {}.".format(
-                    proc.job_dir, return_code
-                )
+                'Process in "%s" completed with return code %d.',
+                proc.job_dir,
+                return_code,
             )
             dest_dir = move_job_to_done(proc.job_dir)
             write_status_file(dest_dir, return_code)
@@ -184,7 +180,7 @@ def run():
 def handle_term(signal, frame):
     """Handle term code and shut down gracefully."""
     global IS_RUNNING
-    logger.warning("Received signal {}.  Shutting down.".format(signal))
+    logger.warning("Received signal %d.  Shutting down.", signal)
     IS_RUNNING = False
 
 
@@ -193,7 +189,7 @@ def main():
     args = docopt(__doc__, version=__version__)
     group = args["--group"]
     if group:
-        print("Setting effective group to '{}'".format(group), file=sys.stderr)
+        print('Setting effective group to "{}".'.format(group), file=sys.stderr)
 
         new_gid = grp.getgrnam(group).gr_gid
         os.setegid(new_gid)
@@ -203,10 +199,11 @@ def main():
     working_dir = os.path.join(os.getcwd(), args["<working-dir>"])
     if not os.path.exists(working_dir):
         print(
-            "Working directory '{}' does not exist. ".format(working_dir)
-            + "Attempting to create...",
+            'Working directory "{}" does not exist.'.format(working_dir),
+            end="",
             file=sys.stderr,
         )
+        print("  Attempting to create...", file=sys.stderr)
         os.mkdir(working_dir)
     os.chdir(working_dir)
     lockpath = os.path.join(working_dir, LOCK_FILENAME)
@@ -214,7 +211,7 @@ def main():
     if lock.is_locked():
         print(
             "Cannot start.  There is already a cyhy-runner executing in "
-            + "this working directory.",
+            "this working directory.",
             file=sys.stderr,
         )
         sys.exit(-1)
