@@ -96,7 +96,7 @@ def check_for_new_work():
         if os.path.exists(done_file):
             logger.warning('Found old "%s" file in new job. Removing.', done_file)
         if os.path.exists(ready_file):
-            running_dirs.append(new_dir)
+            running_dirs.add(new_dir)
             do_work(new_dir)
         else:
             logger.info(
@@ -143,7 +143,7 @@ def move_job_to_done(job_dir):
 
 def write_status_file(job_dir, return_code):
     """Save return code as done flag file."""
-    with open(os.path.join(job_dir, DONE_FILE), "wb") as status_file:
+    with open(os.path.join(job_dir, DONE_FILE), "w") as status_file:
         print(return_code, file=status_file)
 
 
@@ -187,6 +187,7 @@ def handle_term(signal, frame):
 def main():
     """Set up logging and handle command-line arguments to the job runner."""
     args = docopt(__doc__, version=__version__)
+
     group = args["--group"]
     if group:
         print('Setting effective group to "{}".'.format(group), file=sys.stderr)
