@@ -13,7 +13,7 @@ from glob import glob
 from os.path import basename, splitext
 
 # Third-Party Libraries
-from setuptools import setup
+from setuptools import find_packages, setup
 
 
 def readme():
@@ -67,18 +67,15 @@ setup(
     python_requires=">=3.6",
     # What does your project relate to?
     keywords="cyhy",
-    # packages=find_packages(where="src"),
-    packages=["cyhy_runner"],
+    packages=find_packages(where="src"),
     package_dir={"": "src"},
     py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],
-    include_package_data=True,
     install_requires=[
         "docopt >= 0.6.2",
         "lockfile >= 0.9.1",
         "python-daemon >= 1.6",
         "requests >= 2.13",
         "setuptools >= 24.2.0",
-        "schema",
     ],
     extras_require={
         "test": [

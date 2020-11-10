@@ -15,11 +15,11 @@ USER root
 WORKDIR ${CYHY_RUNNER_SRC}
 
 COPY . ${CYHY_RUNNER_SRC}
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --requirement requirements.txt
 
 #TODO run as cyhy (needed now for nmap)
 USER root
 WORKDIR ${CYHY_HOME}
 
-# Use the json form of CMD or it will run in bash and not recieve signals
+# Use the JSON form of CMD or it will run in bash and not receive signals
 CMD ["cyhy-runner", "--stdout-log", "--group", "cyhy", "runner"]

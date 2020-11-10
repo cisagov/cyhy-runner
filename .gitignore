@@ -1,6 +1,5 @@
 __pycache__
 .coverage
-.ipynb_checkpoints
 .mypy_cache
 .pytest_cache
 .python-version
