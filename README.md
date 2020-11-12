@@ -6,9 +6,10 @@
 [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/cisagov/cyhy-runner.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/cisagov/cyhy-runner/context:python)
 [![Known Vulnerabilities](https://snyk.io/test/github/cisagov/cyhy-runner/develop/badge.svg)](https://snyk.io/test/github/cisagov/cyhy-runner)
 
-This project provides functionality to process jobs pushed by the commander to a
+This project provides functionality to process jobs pushed by
+[jsf9k/cyhy-commander](https://github.com/jsf9k/cyhy-commander) to a
 scanner instance. This includes starting and monitoring processes, as well as
-bundling the results for pickup by the commander.
+bundling the results for pickup.
 
 ## Contributing ##
 
