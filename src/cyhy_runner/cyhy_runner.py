@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """Cyber Hygiene job runner.
 
 Reads job files sent from commander.  Starts and monitors processes, and
@@ -233,7 +231,3 @@ def main():
         signal.signal(signal.SIGTERM, handle_term)
         signal.signal(signal.SIGINT, handle_term)
         run()
-
-
-if __name__ == "__main__":
-    sys.exit(main())
