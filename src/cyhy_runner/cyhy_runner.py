@@ -215,7 +215,7 @@ def main():
             "this working directory.",
             file=sys.stderr,
         )
-        return -1
+        sys.exit(-1)
 
     setup_logging(console=args["--stdout-log"])
 
@@ -233,8 +233,6 @@ def main():
         signal.signal(signal.SIGTERM, handle_term)
         signal.signal(signal.SIGINT, handle_term)
         run()
-
-    return 0
 
 
 if __name__ == "__main__":
