@@ -20,6 +20,7 @@ import grp
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+from pathlib import Path
 import shutil
 import signal
 import subprocess  # nosec
@@ -33,8 +34,8 @@ import lockfile
 
 from ._version import __version__
 
-RUNNING_DIR = "running"
-DONE_DIR = "done"
+RUNNING_DIR = Path("running")
+DONE_DIR = Path("done")
 READY_FILE = ".ready"
 DONE_FILE = ".done"
 JOB_FILE = "./job"
@@ -72,9 +73,9 @@ def setup_logging(console=False):
 def setup_directories():
     """Set up running and done directories."""
     for directory in (RUNNING_DIR, DONE_DIR):
-        if not os.path.exists(directory):
+        if not directory.exists():
             logger.info('Creating directory "%s".', directory)
-            os.makedirs(directory)
+            directory.mkdir(parents=True)
 
 
 def check_for_new_work():
@@ -87,11 +88,11 @@ def check_for_new_work():
 
         logger.info('New directory discovered "%s".', new_dir)
         # check for ready file
-        ready_file = os.path.join(RUNNING_DIR, new_dir, READY_FILE)
-        done_file = os.path.join(RUNNING_DIR, new_dir, DONE_FILE)
-        if os.path.exists(done_file):
+        ready_file = RUNNING_DIR / new_dir / READY_FILE
+        done_file = RUNNING_DIR / new_dir / DONE_FILE
+        if done_file.exists():
             logger.warning('Found old "%s" file in new job. Removing.', done_file)
-        if os.path.exists(ready_file):
+        if ready_file.exists():
             running_dirs.add(new_dir)
             do_work(new_dir)
         else:
@@ -102,20 +103,20 @@ def check_for_new_work():
 
 def do_work(job_dir):
     """Perform work on a ready file via a subprocess."""
-    job_dir = os.path.join(RUNNING_DIR, job_dir)
-    job_file = os.path.join(job_dir, JOB_FILE)
+    job_dir = RUNNING_DIR / job_dir
+    job_file = job_dir / JOB_FILE
 
-    if not os.path.exists(job_file):
+    if not job_file.exists():
         logger.warning('No job file found in "%s". Moving to done.', job_dir)
         dest_dir = move_job_to_done(job_dir)
         write_status_file(dest_dir, -111)
         return
 
-    out_file = open(os.path.join(job_dir, STDOUT_FILE), "wb")
-    err_file = open(os.path.join(job_dir, STDERR_FILE), "wb")
+    out_file = (job_dir / STDOUT_FILE).open("wb")
+    err_file = (job_dir / STDERR_FILE).open("wb")
 
     logger.info('Starting work in "%s".', job_dir)
-    os.chmod(job_file, 0o755)  # nosec
+    job_file.chmod(0o755)  # nosec
     # TODO: flake8 complains that the use of shell=True is insecure
     # here, giving a DUO116 error.  This is the reason for the noqa
     # comment below.  We should determine whether or not we can remove
@@ -129,21 +130,21 @@ def do_work(job_dir):
 
 def move_job_to_done(job_dir):
     """Move job directory to done directory."""
-    dir_name = os.path.basename(job_dir)
-    dest_dir = os.path.join(DONE_DIR, dir_name)
-    ready_file = os.path.join(RUNNING_DIR, dir_name, READY_FILE)
+    dir_name = Path(job_dir).name
+    dest_dir = DONE_DIR / dir_name
+    ready_file = RUNNING_DIR / dir_name / READY_FILE
 
-    if os.path.exists(ready_file):
-        os.remove(ready_file)
+    if ready_file.exists():
+        ready_file.unlink()
 
-    shutil.move(job_dir, dest_dir)
+    shutil.move(str(job_dir), dest_dir)
 
     return dest_dir
 
 
 def write_status_file(job_dir, return_code):
     """Save return code as done flag file."""
-    with open(os.path.join(job_dir, DONE_FILE), "w") as status_file:
+    with (Path(job_dir) / DONE_FILE).open("w") as status_file:
         print(return_code, file=status_file)
 
 
@@ -160,7 +161,7 @@ def check_for_done_work():
             dest_dir = move_job_to_done(proc.job_dir)
             write_status_file(dest_dir, return_code)
             processes.remove(proc)
-            running_dirs.remove(os.path.basename(proc.job_dir))
+            running_dirs.remove(Path(proc.job_dir).name)
 
 
 def run():
@@ -197,18 +198,18 @@ def main():
         # enable group write
         os.umask(0o002)
 
-    working_dir = os.path.join(os.getcwd(), args["<working-dir>"])
-    if not os.path.exists(working_dir):
+    working_dir = Path.cwd() / args["<working-dir>"]
+    if not working_dir.exists():
         print(
             f'Working directory "{working_dir}" does not exist.',
             end="",
             file=sys.stderr,
         )
         print("  Attempting to create...", file=sys.stderr)
-        os.mkdir(working_dir)
+        working_dir.mkdir()
     os.chdir(working_dir)
-    lockpath = os.path.join(working_dir, LOCK_FILENAME)
-    lock = lockfile.LockFile(lockpath, timeout=0)
+    lockpath = working_dir / LOCK_FILENAME
+    lock = lockfile.LockFile(str(lockpath), timeout=0)
     if lock.is_locked():
         print(
             "Cannot start.  There is already a cyhy-runner executing in "
@@ -221,7 +222,7 @@ def main():
 
     if args["--background"]:
         context = daemon.DaemonContext(
-            working_directory=working_dir, umask=0o007, pidfile=lock
+            working_directory=str(working_dir), umask=0o007, pidfile=lock
         )
         context.signal_map = {
             signal.SIGTERM: handle_term,
