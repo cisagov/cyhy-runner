@@ -75,7 +75,7 @@ def setup_directories():
     for directory in (RUNNING_DIR, DONE_DIR):
         if not directory.exists():
             logger.info('Creating directory "%s".', directory)
-            directory.mkdir(parents=True)
+            directory.mkdir(parents=True, exist_ok=True)
 
 
 def check_for_new_work():
@@ -92,6 +92,7 @@ def check_for_new_work():
         done_file = RUNNING_DIR / new_dir / DONE_FILE
         if done_file.exists():
             logger.warning('Found old "%s" file in new job. Removing.', done_file)
+            done_file.unlink()
         if ready_file.exists():
             running_dirs.add(new_dir)
             do_work(new_dir)
@@ -137,7 +138,7 @@ def move_job_to_done(job_dir):
     if ready_file.exists():
         ready_file.unlink()
 
-    shutil.move(str(job_dir), dest_dir)
+    shutil.move(job_dir, dest_dir)
 
     return dest_dir
 
