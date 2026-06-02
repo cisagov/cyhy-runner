@@ -75,7 +75,7 @@ def setup_directories():
     for directory in (RUNNING_DIR, DONE_DIR):
         if not directory.exists():
             logger.info('Creating directory "%s".', directory)
-            directory.mkdir(parents=True, exist_ok=True)
+        directory.mkdir(parents=True, exist_ok=True)
 
 
 def check_for_new_work():
