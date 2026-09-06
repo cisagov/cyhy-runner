@@ -117,9 +117,9 @@ def do_work(job_dir):
     err_file = open(os.path.join(job_dir, STDERR_FILE), "wb")
 
     logger.info('Starting work in "%s".', job_dir)
-    os.chmod(job_file, 0o755)  # nosec
+    os.chmod(job_file, 0o755)  # nosec B103
     try:
-        process = subprocess.Popen(  # nosec
+        process = subprocess.Popen(  # nosec B603
             [JOB_FILE], cwd=job_dir, stdout=out_file, stderr=err_file
         )
     except OSError as err:
@@ -129,7 +129,7 @@ def do_work(job_dir):
         # directly.  A shell falls back to reading it as a shell script in
         # that case, which is what running it through one used to do, so
         # do the same rather than failing a job that used to run.
-        process = subprocess.Popen(  # nosec
+        process = subprocess.Popen(  # nosec B603
             [SHELL, JOB_FILE], cwd=job_dir, stdout=out_file, stderr=err_file
         )
     process.job_dir = job_dir
