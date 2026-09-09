@@ -123,6 +123,10 @@ def do_work(job_dir):
                 )
             except OSError as err:
                 if err.errno != errno.ENOEXEC:
+                    # The exception is logged in run(), so we don't
+                    # need to do it here.
+                    dest_dir = move_job_to_done(job_dir)
+                    write_status_file(dest_dir, err.errno)
                     raise
                 # The job file has no shebang, so the kernel will not execute it
                 # directly.  A shell falls back to reading it as a shell script in
