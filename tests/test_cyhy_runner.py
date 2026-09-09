@@ -120,16 +120,13 @@ def test_do_work_runs_a_job_without_a_shebang(tmp_path):
     assert _run_job(tmp_path, "echo no-shebang\n") == "no-shebang\n"
 
 
-def test_check_for_new_work_records_a_job_it_cannot_start(tmp_path):
-    """Verify that a job the kernel cannot execute is recorded as a failure.
+def _offer_unstartable_job(tmp_path, contents):
+    """Offer check_for_new_work() a job it cannot start and return its status.
 
-    A shebang naming an interpreter that does not exist fails with ENOENT
-    rather than ENOEXEC, so the shell fallback does not apply and the job
-    cannot be started at all.  That has to be recorded the way a missing job
-    file is: run() only logs the exceptions it catches and keeps polling, so
-    a job left in running_dirs with nothing in processes is never looked at
-    again and never gets a status file.  It stalls rather than fails, which
-    is harder to notice than a crash.
+    Contents of None leaves the job directory with no job file in it at all.
+    Asserts the three things that distinguish a recorded failure from a
+    stalled job, then returns the status recorded for it so that the caller
+    can check the value.
     """
     runner = cyhy_runner.cyhy_runner
     running_dir = os.path.join(str(tmp_path), "running")
@@ -138,7 +135,10 @@ def test_check_for_new_work_records_a_job_it_cannot_start(tmp_path):
     os.makedirs(done_dir)
     job_name = "a_job"
     job_dir = os.path.join(running_dir, job_name)
-    _write_job(job_dir, "#!/nonexistent/interpreter\necho unreachable\n")
+    if contents is None:
+        os.makedirs(job_dir)
+    else:
+        _write_job(job_dir, contents)
     # check_for_new_work() only starts a job the commander has finished
     # writing, and it is what adds the job to running_dirs.
     with open(os.path.join(job_dir, runner.READY_FILE), "w"):
@@ -152,12 +152,39 @@ def test_check_for_new_work_records_a_job_it_cannot_start(tmp_path):
     assert runner.processes == []
     # It must not be left sitting in the running directory.
     assert not os.path.exists(job_dir)
-    # It must be recorded as a failure the commander can collect.  The
-    # commander treats any status other than "0" as a failed job.
-    done_file = os.path.join(done_dir, job_name, runner.DONE_FILE)
-    assert os.path.exists(done_file)
-    with open(done_file) as f:
-        assert int(f.read()) != 0
     # check_for_new_work() skips any name still in running_dirs, so a stale
     # entry would blacklist that name for the life of the process.
     assert runner.running_dirs == set()
+
+    # It must be recorded as a failure that the commander can collect.
+    done_file = os.path.join(done_dir, job_name, runner.DONE_FILE)
+    assert os.path.exists(done_file)
+    with open(done_file) as f:
+        return int(f.read())
+
+
+def test_check_for_new_work_records_a_job_it_cannot_start(tmp_path):
+    """Verify that a job the kernel cannot execute is recorded as a failure.
+
+    A shebang naming an interpreter that does not exist fails with ENOENT
+    rather than ENOEXEC, so the shell fallback does not apply and the job
+    cannot be started at all.  That has to be recorded the way a missing job
+    file is: run() only logs the exceptions it catches and keeps polling, so
+    a job left in running_dirs with nothing in processes is never looked at
+    again and never gets a status file.  It stalls rather than fails, which
+    is harder to notice than a crash.
+    """
+    job = "#!/nonexistent/interpreter\necho unreachable\n"
+    # The commander treats any status other than "0" as a failed job, so the
+    # exact value matters less than it being non-zero.
+    assert _offer_unstartable_job(tmp_path, job) != 0
+
+
+def test_check_for_new_work_records_a_job_with_no_job_file(tmp_path):
+    """Verify that a ready job directory with no job file is recorded.
+
+    This path already moved the job to done and recorded a status for it, but
+    it left the name in running_dirs, which check_for_new_work() filters
+    against.  That silently blacklists the name for the life of the process.
+    """
+    assert _offer_unstartable_job(tmp_path, None) == -111

@@ -111,6 +111,7 @@ def do_work(job_dir):
         logger.warning('No job file found in "%s". Moving to done.', job_dir)
         dest_dir = move_job_to_done(job_dir)
         write_status_file(dest_dir, -111)
+        running_dirs.discard(os.path.basename(job_dir))
         return
 
     with open(os.path.join(job_dir, STDOUT_FILE), "wb") as out_file:
