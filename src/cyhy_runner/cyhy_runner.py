@@ -123,11 +123,20 @@ def do_work(job_dir):
                 )
             except OSError as err:
                 if err.errno != errno.ENOEXEC:
-                    # The exception is logged in run(), so we don't
-                    # need to do it here.
+                    logger.warning(
+                        'Could not execute "%s": %s.  Moving to done.',
+                        job_file,
+                        err,
+                    )
                     dest_dir = move_job_to_done(job_dir)
-                    write_status_file(dest_dir, err.errno)
-                    raise
+                    # Negative, like the -111 above, so that it cannot be
+                    # confused with an exit code from the job itself.
+                    write_status_file(dest_dir, -err.errno)
+                    # check_for_new_work() added this before calling us, and
+                    # it skips any name still in running_dirs, so leaving it
+                    # would blacklist the name for the life of the process.
+                    running_dirs.discard(os.path.basename(job_dir))
+                    return
                 # The job file has no shebang, so the kernel will not execute it
                 # directly.  A shell falls back to reading it as a shell script in
                 # that case, which is what running it through one used to do, so
