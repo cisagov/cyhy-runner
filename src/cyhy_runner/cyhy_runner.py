@@ -102,6 +102,24 @@ def check_for_new_work():
             )
 
 
+def start_job(job_dir, out_file, err_file):
+    """Start the job file, falling back to a shell if it has no shebang."""
+    try:
+        return subprocess.Popen(  # nosec B603
+            [JOB_FILE], cwd=job_dir, stdout=out_file, stderr=err_file
+        )
+    except OSError as err:
+        if err.errno != errno.ENOEXEC:
+            raise
+        # The job file has no shebang, so the kernel will not execute it
+        # directly.  A shell falls back to reading it as a shell script in
+        # that case, which is what running it through one used to do, so do
+        # the same rather than failing a job that used to run.
+        return subprocess.Popen(  # nosec B603
+            [SHELL, JOB_FILE], cwd=job_dir, stdout=out_file, stderr=err_file
+        )
+
+
 def do_work(job_dir):
     """Perform work on a ready file via a subprocess."""
     job_dir = os.path.join(RUNNING_DIR, job_dir)
@@ -117,37 +135,32 @@ def do_work(job_dir):
         running_dirs.discard(os.path.basename(job_dir))
         return
 
+    process = None
+    status = 0
     with open(os.path.join(job_dir, STDOUT_FILE), "wb") as out_file:
         with open(os.path.join(job_dir, STDERR_FILE), "wb") as err_file:
             logger.info('Starting work in "%s".', job_dir)
             os.chmod(job_file, 0o755)  # nosec B103
             try:
-                process = subprocess.Popen(  # nosec B603
-                    [JOB_FILE], cwd=job_dir, stdout=out_file, stderr=err_file
-                )
+                process = start_job(job_dir, out_file, err_file)
             except OSError as err:
-                if err.errno != errno.ENOEXEC:
-                    logger.warning(
-                        'Could not execute "%s": %s.  Moving to done.',
-                        job_file,
-                        err,
-                    )
-                    dest_dir = move_job_to_done(job_dir)
-                    # Negative, like the -111 above, so that it cannot be
-                    # confused with an exit code from the job itself.
-                    write_status_file(dest_dir, -err.errno)
-                    # check_for_new_work() added this before calling us, and
-                    # it skips any name still in running_dirs, so leaving it
-                    # would blacklist the name for the life of the process.
-                    running_dirs.discard(os.path.basename(job_dir))
-                    return
-                # The job file has no shebang, so the kernel will not execute it
-                # directly.  A shell falls back to reading it as a shell script in
-                # that case, which is what running it through one used to do, so
-                # do the same rather than failing a job that used to run.
-                process = subprocess.Popen(  # nosec B603
-                    [SHELL, JOB_FILE], cwd=job_dir, stdout=out_file, stderr=err_file
+                logger.warning(
+                    'Could not execute "%s": %s.  Moving to done.', job_file, err
                 )
+                # Negative, like the -111 above, so that it cannot be
+                # confused with an exit code from the job itself.
+                status = -err.errno
+
+    if process is None:
+        # We could not start the job at all, by either route.  Record that as
+        # a failed job rather than letting the exception reach run(), which
+        # only logs it and keeps polling: the job would be left in
+        # running_dirs with nothing in processes, so it would never be looked
+        # at again and never get a status file.
+        dest_dir = move_job_to_done(job_dir)
+        write_status_file(dest_dir, status)
+        running_dirs.discard(os.path.basename(job_dir))
+        return
 
     process.job_dir = job_dir
     processes.append(process)

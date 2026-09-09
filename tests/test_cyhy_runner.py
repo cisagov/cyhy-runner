@@ -120,10 +120,14 @@ def test_do_work_runs_a_job_without_a_shebang(tmp_path):
     assert _run_job(tmp_path, "echo no-shebang\n") == "no-shebang\n"
 
 
-def _offer_unstartable_job(tmp_path, contents):
+def _offer_unstartable_job(tmp_path, contents, fallback_shell=None):
     """Offer check_for_new_work() a job it cannot start and return its status.
 
     Contents of None leaves the job directory with no job file in it at all.
+    A fallback_shell that is not None replaces the interpreter that a job
+    file with no shebang is retried through, so that the retry can be made to
+    fail too.
+
     Asserts the three things that distinguish a recorded failure from a
     stalled job, then returns the status recorded for it so that the caller
     can check the value.
@@ -146,7 +150,8 @@ def _offer_unstartable_job(tmp_path, contents):
 
     with patch.object(runner, "RUNNING_DIR", running_dir):
         with patch.object(runner, "DONE_DIR", done_dir):
-            runner.check_for_new_work()
+            with patch.object(runner, "SHELL", fallback_shell or runner.SHELL):
+                runner.check_for_new_work()
 
     # Nothing is tracking the job, so check_for_done_work() will never see it.
     assert runner.processes == []
@@ -188,3 +193,19 @@ def test_check_for_new_work_records_a_job_with_no_job_file(tmp_path):
     against.  That silently blacklists the name for the life of the process.
     """
     assert _offer_unstartable_job(tmp_path, None) == -111
+
+
+def test_check_for_new_work_records_a_failed_shell_fallback(tmp_path):
+    """Verify that a failure of the no-shebang fallback is recorded too.
+
+    A job file with no shebang fails with ENOEXEC and is retried through a
+    shell.  That second attempt can fail in its own right, and because it
+    runs inside the handler for the first one, its exception is not caught by
+    the same try.  It has to be recorded rather than left to reach run(),
+    exactly as a failure of the first attempt is.
+    """
+    # No shebang, so the first attempt fails with ENOEXEC and the fallback is
+    # what runs.  Point the fallback at an interpreter that does not exist so
+    # that it fails as well.
+    job = "echo unreachable\n"
+    assert _offer_unstartable_job(tmp_path, job, fallback_shell="/nonexistent") != 0
