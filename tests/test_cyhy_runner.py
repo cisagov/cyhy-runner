@@ -118,3 +118,46 @@ def test_do_work_runs_a_job_without_a_shebang(tmp_path):
     moved to the done directory.
     """
     assert _run_job(tmp_path, "echo no-shebang\n") == "no-shebang\n"
+
+
+def test_check_for_new_work_records_a_job_it_cannot_start(tmp_path):
+    """Verify that a job the kernel cannot execute is recorded as a failure.
+
+    A shebang naming an interpreter that does not exist fails with ENOENT
+    rather than ENOEXEC, so the shell fallback does not apply and the job
+    cannot be started at all.  That has to be recorded the way a missing job
+    file is: run() only logs the exceptions it catches and keeps polling, so
+    a job left in running_dirs with nothing in processes is never looked at
+    again and never gets a status file.  It stalls rather than fails, which
+    is harder to notice than a crash.
+    """
+    runner = cyhy_runner.cyhy_runner
+    running_dir = os.path.join(str(tmp_path), "running")
+    done_dir = os.path.join(str(tmp_path), "done")
+    os.makedirs(running_dir)
+    os.makedirs(done_dir)
+    job_name = "a_job"
+    job_dir = os.path.join(running_dir, job_name)
+    _write_job(job_dir, "#!/nonexistent/interpreter\necho unreachable\n")
+    # check_for_new_work() only starts a job the commander has finished
+    # writing, and it is what adds the job to running_dirs.
+    with open(os.path.join(job_dir, runner.READY_FILE), "w"):
+        pass
+
+    with patch.object(runner, "RUNNING_DIR", running_dir):
+        with patch.object(runner, "DONE_DIR", done_dir):
+            runner.check_for_new_work()
+
+    # Nothing is tracking the job, so check_for_done_work() will never see it.
+    assert runner.processes == []
+    # It must not be left sitting in the running directory.
+    assert not os.path.exists(job_dir)
+    # It must be recorded as a failure the commander can collect.  The
+    # commander treats any status other than "0" as a failed job.
+    done_file = os.path.join(done_dir, job_name, runner.DONE_FILE)
+    assert os.path.exists(done_file)
+    with open(done_file) as f:
+        assert int(f.read()) != 0
+    # check_for_new_work() skips any name still in running_dirs, so a stale
+    # entry would blacklist that name for the life of the process.
+    assert runner.running_dirs == set()
