@@ -54,6 +54,30 @@ def test_release_version():
     ), "RELEASE_TAG does not match the project version"
 
 
+@pytest.fixture(autouse=True)
+def reset_runner_state():
+    """Clear the runner's module-level state around each test.
+
+    do_work() and check_for_new_work() record their work in module-level
+    collections, so a test that fails before it can tidy up would otherwise
+    leak a running child process and a job directory name into whatever runs
+    next.
+    """
+    runner = cyhy_runner.cyhy_runner
+    runner.processes.clear()
+    runner.running_dirs.clear()
+
+    yield
+
+    # Anything still here belongs to a test that did not finish.  Reap it
+    # rather than leaving an orphan behind for the rest of the session.
+    for process in runner.processes:
+        process.kill()
+        process.wait()
+    runner.processes.clear()
+    runner.running_dirs.clear()
+
+
 def _write_job(job_dir, contents):
     """Create an executable job file with the given contents."""
     os.makedirs(job_dir)
@@ -72,8 +96,9 @@ def _run_job(tmp_path, contents):
         _write_job(os.path.join(str(tmp_path), job_name), contents)
         runner.do_work(job_name)
         assert len(runner.processes) == 1
-        process = runner.processes.pop()
-        assert process.wait() == 0
+        # reset_runner_state() owns the cleanup, so there is no need to pop
+        # the process off the list to keep it out of later tests.
+        assert runner.processes[0].wait() == 0
     with open(os.path.join(str(tmp_path), job_name, runner.STDOUT_FILE)) as f:
         return f.read()
 
