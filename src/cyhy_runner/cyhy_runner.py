@@ -105,7 +105,10 @@ def check_for_new_work():
 def do_work(job_dir):
     """Perform work on a ready file via a subprocess."""
     job_dir = os.path.join(RUNNING_DIR, job_dir)
-    job_file = os.path.join(job_dir, JOB_FILE)
+    # JOB_FILE is relative because it is what we hand to the job process as
+    # argv[0], with job_dir as its working directory.  Normalize it away here
+    # so that the path we test, chmod and log is not "<job_dir>/./job".
+    job_file = os.path.normpath(os.path.join(job_dir, JOB_FILE))
 
     if not os.path.exists(job_file):
         logger.warning('No job file found in "%s". Moving to done.', job_dir)
