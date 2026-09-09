@@ -16,13 +16,14 @@ Options:
 """
 
 # Standard Python Libraries
+import errno
 import grp
 import logging
 from logging.handlers import RotatingFileHandler
 import os
 import shutil
 import signal
-import subprocess  # nosec
+import subprocess  # nosec B404
 import sys
 import time
 
@@ -38,6 +39,7 @@ DONE_DIR = "done"
 READY_FILE = ".ready"
 DONE_FILE = ".done"
 JOB_FILE = "./job"
+SHELL = "/bin/sh"
 STDOUT_FILE = "job.out"
 STDERR_FILE = "job.err"
 POLL_INTERVAL = 15
@@ -100,29 +102,66 @@ def check_for_new_work():
             )
 
 
+def start_job(job_dir, out_file, err_file):
+    """Start the job file, falling back to a shell if it has no shebang."""
+    try:
+        return subprocess.Popen(  # nosec B603
+            [JOB_FILE], cwd=job_dir, stdout=out_file, stderr=err_file
+        )
+    except OSError as err:
+        if err.errno != errno.ENOEXEC:
+            raise
+        # The job file has no shebang, so the kernel will not execute it
+        # directly.  A shell falls back to reading it as a shell script in
+        # that case, which is what running it through one used to do, so do
+        # the same rather than failing a job that used to run.
+        return subprocess.Popen(  # nosec B603
+            [SHELL, JOB_FILE], cwd=job_dir, stdout=out_file, stderr=err_file
+        )
+
+
 def do_work(job_dir):
     """Perform work on a ready file via a subprocess."""
     job_dir = os.path.join(RUNNING_DIR, job_dir)
-    job_file = os.path.join(job_dir, JOB_FILE)
+    # JOB_FILE is relative because it is what we hand to the job process as
+    # argv[0], with job_dir as its working directory.  Normalize it away here
+    # so that the path we test, chmod and log is not "<job_dir>/./job".
+    job_file = os.path.normpath(os.path.join(job_dir, JOB_FILE))
 
     if not os.path.exists(job_file):
         logger.warning('No job file found in "%s". Moving to done.', job_dir)
         dest_dir = move_job_to_done(job_dir)
         write_status_file(dest_dir, -111)
+        running_dirs.discard(os.path.basename(job_dir))
         return
 
-    out_file = open(os.path.join(job_dir, STDOUT_FILE), "wb")
-    err_file = open(os.path.join(job_dir, STDERR_FILE), "wb")
+    process = None
+    status = 0
+    with open(os.path.join(job_dir, STDOUT_FILE), "wb") as out_file:
+        with open(os.path.join(job_dir, STDERR_FILE), "wb") as err_file:
+            logger.info('Starting work in "%s".', job_dir)
+            os.chmod(job_file, 0o755)  # nosec B103
+            try:
+                process = start_job(job_dir, out_file, err_file)
+            except OSError as err:
+                logger.warning(
+                    'Could not execute "%s": %s.  Moving to done.', job_file, err
+                )
+                # Negative, like the -111 above, so that it cannot be
+                # confused with an exit code from the job itself.
+                status = -err.errno
 
-    logger.info('Starting work in "%s".', job_dir)
-    os.chmod(job_file, 0o755)  # nosec
-    # TODO: flake8 complains that the use of shell=True is insecure
-    # here, giving a DUO116 error.  This is the reason for the noqa
-    # comment below.  We should determine whether or not we can remove
-    # shell=True.  See #47.
-    process = subprocess.Popen(  # noqa: DUO116 # nosec
-        JOB_FILE, cwd=job_dir, shell=True, stdout=out_file, stderr=err_file
-    )
+    if process is None:
+        # We could not start the job at all, by either route.  Record that as
+        # a failed job rather than letting the exception reach run(), which
+        # only logs it and keeps polling: the job would be left in
+        # running_dirs with nothing in processes, so it would never be looked
+        # at again and never get a status file.
+        dest_dir = move_job_to_done(job_dir)
+        write_status_file(dest_dir, status)
+        running_dirs.discard(os.path.basename(job_dir))
+        return
+
     process.job_dir = job_dir
     processes.append(process)
 
