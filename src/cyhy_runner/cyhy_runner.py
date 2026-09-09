@@ -113,25 +113,25 @@ def do_work(job_dir):
         write_status_file(dest_dir, -111)
         return
 
-    out_file = open(os.path.join(job_dir, STDOUT_FILE), "wb")
-    err_file = open(os.path.join(job_dir, STDERR_FILE), "wb")
+    with open(os.path.join(job_dir, STDOUT_FILE), "wb") as out_file:
+        with open(os.path.join(job_dir, STDERR_FILE), "wb") as err_file:
+            logger.info('Starting work in "%s".', job_dir)
+            os.chmod(job_file, 0o755)  # nosec B103
+            try:
+                process = subprocess.Popen(  # nosec B603
+                    [JOB_FILE], cwd=job_dir, stdout=out_file, stderr=err_file
+                )
+            except OSError as err:
+                if err.errno != errno.ENOEXEC:
+                    raise
+                # The job file has no shebang, so the kernel will not execute it
+                # directly.  A shell falls back to reading it as a shell script in
+                # that case, which is what running it through one used to do, so
+                # do the same rather than failing a job that used to run.
+                process = subprocess.Popen(  # nosec B603
+                    [SHELL, JOB_FILE], cwd=job_dir, stdout=out_file, stderr=err_file
+                )
 
-    logger.info('Starting work in "%s".', job_dir)
-    os.chmod(job_file, 0o755)  # nosec B103
-    try:
-        process = subprocess.Popen(  # nosec B603
-            [JOB_FILE], cwd=job_dir, stdout=out_file, stderr=err_file
-        )
-    except OSError as err:
-        if err.errno != errno.ENOEXEC:
-            raise
-        # The job file has no shebang, so the kernel will not execute it
-        # directly.  A shell falls back to reading it as a shell script in
-        # that case, which is what running it through one used to do, so
-        # do the same rather than failing a job that used to run.
-        process = subprocess.Popen(  # nosec B603
-            [SHELL, JOB_FILE], cwd=job_dir, stdout=out_file, stderr=err_file
-        )
     process.job_dir = job_dir
     processes.append(process)
 
