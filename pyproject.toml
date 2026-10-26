@@ -46,7 +46,7 @@ dependencies = [
     "docopt >= 0.6.2",
     "lockfile >= 0.12.2",
     "python-daemon >= 3.1.2",
-    "requests >= 2.33.1",
+    "requests >= 2.32.3",
 ]
 description = "Job runner daemon for Cyber Hygiene remote scanners"
 dynamic = ["readme", "version"]
